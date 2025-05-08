@@ -1,0 +1,461 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>evse log status</title>
+
+  <!-- bootstrap -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <!-- bootstrap -->
+
+
+  <!-- flot -->
+  <link href="http://www.flotcharts.org/flot/examples/examples.css" rel="stylesheet" type="text/css">
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/lib/globalize.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.canvaswrapper.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.colorhelpers.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.saturated.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.browser.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.drawSeries.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.uiConstants.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.legend.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.time.js"></script>
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/examples/axes-time-zones/date.js"></script>
+
+  <script language="javascript" type="text/javascript" src="http://www.flotcharts.org/flot/source/jquery.flot.hover.js"></script>
+  <!-- flot -->
+
+  <script type="text/javascript">
+
+  $(function() {
+    timezoneJS.timezone.zoneFileBasePath = "tz";
+    timezoneJS.timezone.defaultZoneFile = [];
+    timezoneJS.timezone.init({async: false});
+
+
+
+    // We use an inline data source in the example, usually data would
+    // be fetched from a server
+    var options ={
+      series: {
+        lines: {
+          show: true
+        },
+        points: {
+          show: true
+        },
+        shadowSize: 0 // Drawing is faster without shadows
+      },
+      grid: {
+        hoverable: true,
+        clickable: true
+      },
+      xaxis: {
+        mode : "time",
+        timezone : "browser",
+        timeBase : "seconds"
+      },
+      legend: {
+        show: true,
+        position: "nw"
+      }
+
+    };
+
+    var evse_status_2_txt=[
+       "0:erreur",
+       "1:chargeur et controleur eteints, aucun des 2 sous tension",
+       "2:vehicule non connecte au chargeur, chargeur eteint",
+       "3:vehicule non connecte au chargeur, chargeur fonctionnel",
+       "4:vehicule connecte au chargeur, chargeur eteint, en attente de mise sous tension",
+       "5:vehicule connecte au chargeur, charge stoppee, prete a demarrer (XAmp max disponible)",
+       "6:vehicule connecte au chargeur, charge disponible, prete a demarrer (XAmp max disponible)",
+       "7:vehicule connecte au chargeur, charge en cours (XAmp max disponible)"
+    ];
+    var ev_status_last=0,ev_status_last_prev=-1,last_time=0;
+
+
+    function converJson2dataplot(json_text){
+      //var last_index;
+      var data_json=JSON.parse(json_text);
+      var data=[];
+      //var data_local=[];
+      //last_index=0;
+      data.push([]); // data[0]
+      data.push([]); // data[1]
+      data.push([]); // data[2]
+      data.push([]); // data[3]
+      data.push([]); // data[4]
+      data.push([]); // data[5]
+      data.push([]); // data[6]
+      data.push([]); // data[7]
+      //document.getElementById("demo").innerHTML = JSON.stringify(data_json);
+      var CtrErrSum=0;
+
+      var table_input_output_2_status=[
+/* OutputPilotStateNum  0  1  2  3  4  5  6  7 */
+        /* 0 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+        /* 1 */       [ 0, 0, 2, 4, 0, 0, 0, 0 ],
+        /* 2 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+        /* 3 */       [ 0, 0, 3, 5, 0, 0, 5, 0 ],
+        /* 4 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+        /* 5 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+        /* 6 */       [ 0, 0, 3, 5, 0, 0, 6, 6 ],
+        /* 7 */       [ 0, 0, 0, 0, 0, 0, 6, 7 ]
+      ];
+/*
+  $son_off_evse_status_txt=array(
+    -1=>"etat inconnu, non evalue",
+    0=>"erreur",
+    1=>"chargeur et controleur eteints, aucun des 2 sous tension",
+    2=>"vehicule non connecte au chargeur, chargeur eteint",
+    3=>"vehicule non connecte au chargeur, chargeur fonctionnel",
+    4=>"vehicule connecte au chargeur, chargeur eteint, en attente de mise sous tension",
+    5=>"vehicule connecte au chargeur, charge stoppee, prete a demarrer (".(($data_array["power_table_index"]==0)?0:$data_array["power_table_index"]+5.0)."Amp max disponible)",
+    6=>"vehicule connecte au chargeur, charge disponible, prete a demarrer (".($data_array["power_table_index"]+5.0)."Amp max disponible)",
+    7=>"vehicule connecte au chargeur, charge en cours (".($data_array["power_table_index"]+5.0)."Amp max disponible)"
+    );
+
+*/
+      function sortElement(a,b){
+        return (data_json[a]["time_sec"]>data_json[b]["time_sec"]);
+      }
+
+      var n=0,ev_status=0;
+      var data_json_keys=[];
+      //data_json.sort(sortElement);
+      for (var i in data_json ) {
+        data_json_keys.push(i);
+
+      }
+      data_json_keys.sort();
+
+
+      for (var j in data_json_keys ) {
+        i=data_json_keys[j];
+        if (data_json[i]["time_sec"]>last_time){
+
+          last_time=data_json[i]["time_sec"];
+          ev_status_last=ev_status;
+        }
+        if (!("InputPilotState" in data_json[i])) {continue;}
+        if (!("OutputPilotState" in data_json[i])) {continue;}
+        if (!("power_table_index" in data_json[i])) {continue;}
+        //if (!("ErrCtr" in data_json[i])) {continue;}
+        ev_status=table_input_output_2_status[data_json[i]["InputPilotState"].charCodeAt(0)-64]
+                                                [data_json[i]["OutputPilotState"].charCodeAt(0)-64];
+        if (data_json[i]["power_table_index"]>0){
+          puissance_A=(data_json[i]["power_table_index"]+5);
+        }else{
+          puissance_A=0;
+        }
+        
+        //console.log(j,i,data_json[i]["time_sec"],last_time,ev_status);
+        n=0;
+        //data[n++].push([data_json[i]["time_sec"],data_json[i]["output_pilot_voltage_min_v"]        ]);
+        //data[n++].push([data_json[i]["time_sec"],data_json[i]["output_pilot_voltage_max_v"]        ]);
+        data[n++].push([data_json[i]["time_sec"],puissance_A                                       ]);
+        //data[n++].push([data_json[i]["time_sec"],data_json[i]["power_table_index_sp"]              ]);
+        //data[n++].push([data_json[i]["time_sec"],data_json[i]["OutputPilotState"].charCodeAt(0)-64 ]);
+        //data[n++].push([data_json[i]["time_sec"],data_json[i]["InputPilotState"].charCodeAt(0)-64  ]);
+        data[n++].push([data_json[i]["time_sec"],data_json[i]["ErrCtr"]                            ]);
+        data[n++].push([data_json[i]["time_sec"],ev_status                                         ]);
+        
+        CtrErrSum += data_json[i]["ErrCtr"];
+        //last_index++;
+      //}
+
+      }
+
+      n=0;
+      return [//{ label: "output_pilot_voltage_min_v", data:data[n++] }, 
+              //{ label: "output_pilot_voltage_max_v", data:data[n++] },
+              { label: "puissance disponible (A)",          data:data[n++] },
+              //{ label: "power_table_index_sp",       data:data[n++] },
+              //{ label: "OutputPilotState",           data:data[n++] },
+              //{ label: "InputPilotState",            data:data[n++] },
+              { label: "ErrCtr ("+CtrErrSum+")",     data:data[n++] },
+              { label: "status",     data:data[n++] }
+             ];
+    }
+    var plot = 0;
+
+    function readData(){
+      var xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          //document.getElementById("demo").innerHTML = this.responseText;
+          var  data_plot=converJson2dataplot(this.responseText);
+          //document.getElementById("demo").innerHTML = JSON.stringify(data_plot);
+          
+          plot=$.plot("#placeholder",  data_plot , options);
+        }
+      };
+
+      xhttp.open("GET", "datalog.json", true);
+      xhttp.send();
+    }
+
+    function updateEvChargeurStatusDisplay(status){
+/*
+  $son_off_evse_status_txt=array(
+    -1=>"etat inconnu, non evalue",
+    0=>"erreur",
+    1=>"chargeur et controleur eteints, aucun des 2 sous tension",
+    2=>"vehicule non connecte au chargeur, chargeur eteint",
+    3=>"vehicule non connecte au chargeur, chargeur fonctionnel",
+    4=>"vehicule connecte au chargeur, chargeur eteint, en attente de mise sous tension",
+    5=>"vehicule connecte au chargeur, charge stoppee, prete a demarrer (".(($data_array["power_table_index"]==0)?0:$data_array["power_table_index"]+5.0)."Amp max disponible)",
+    6=>"vehicule connecte au chargeur, charge disponible, prete a demarrer (".($data_array["power_table_index"]+5.0)."Amp max disponible)",
+    7=>"vehicule connecte au chargeur, charge en cours (".($data_array["power_table_index"]+5.0)."Amp max disponible)"
+    );
+
+*/    
+          switch(status) {
+            case 2:
+              document.getElementById("ev_status").setAttribute("src",   "images/ev_not_connected_evse_off.jp2");
+              document.getElementById("ev_status").setAttribute("title", "chargeur non disponible, a mettre sous tension, vehicule non connecté au chargeur");
+              document.getElementById("ev_txt_status").innerHTML = "-------";
+              break;
+            case 3:
+              document.getElementById("ev_status").setAttribute("src",   "images/ev_not_connected_evse_on.jp2");
+              document.getElementById("ev_status").setAttribute("title", "vehicule non connecté au chargeur");
+              document.getElementById("ev_txt_status").innerHTML = "-------";
+              break;
+            case 4:
+              document.getElementById("ev_status").setAttribute("src",   "images/ev_connected_evse_off.jp2");
+              document.getElementById("ev_status").setAttribute("title", "chargeur non disponible, a mettre sous tension, vehicule connecté au chargeur");
+              document.getElementById("ev_txt_status").innerHTML = "-------";
+              break;
+            case 5:
+            case 6:
+              document.getElementById("ev_status").setAttribute("src",   "images/ev_connected_evse_on.jp2");
+              document.getElementById("ev_status").setAttribute("title", "vehicule connecté au chargeur");
+              document.getElementById("ev_txt_status").innerHTML = "EV PRES";
+              break;
+            case 7:
+              document.getElementById("ev_status").setAttribute("src",   "images/ev_charging.jp2");
+              document.getElementById("ev_status").setAttribute("title", "charge vehicule en cours");
+              document.getElementById("ev_txt_status").innerHTML = "EV CHAR";
+              break;
+            default:
+              document.getElementById("ev_status").setAttribute("src",   "images/ev_evse_no_status.jp2");
+              document.getElementById("ev_status").setAttribute("title", "chargeur dans un etat inconnu en cours de verification");
+              document.getElementById("ev_txt_status").innerHTML = "???????";
+              // code block
+          }
+
+
+
+    }
+
+    function updateEvery1sec(){
+          if (ev_status_last!=ev_status_last_prev){
+            updateEvChargeurStatusDisplay(ev_status_last);
+            //evsb_t14.set_state(ev_status_last);
+            ev_status_last_prev=ev_status_last;
+          } else {}
+          document.getElementById("time").innerHTML = new Date().toLocaleTimeString();
+          window.setTimeout(updateEvery1sec, 1000);
+    }
+
+    function updateEvery10sec(){
+          readData();
+          window.setTimeout(updateEvery10sec, 10000);
+    }
+
+    $("<div id='tooltip'></div>").css({
+      position: "absolute",
+      display: "none",
+      border: "1px solid #fdd",
+      padding: "2px",
+      "background-color": "#fee",
+      opacity: 0.80
+    }).appendTo("body");
+
+    $("#placeholder").bind("plothover", function (event, pos, item) {
+            if (!pos.x || !pos.y) {
+              return;
+            }
+
+            if (item) {
+
+              var y = item.datapoint[1].toFixed(2),
+                  d = new Date(  item.datapoint[0] *1000 ),
+                  s="";
+              if (item.series.label=="status"){
+                s=evse_status_2_txt[item.datapoint[1]];
+              }else{
+                s=y;
+              }
+
+              $("#tooltip").html("value "+item.series.label+" at " + d.toLocaleString()+ " = " + s)
+                          .css({top: item.pageY+5, left: item.pageX+5})
+                          .fadeIn(200);
+            }
+            else {
+                  $("#tooltip").hide();
+            }
+    });
+
+    $("#placeholder").bind("plothovercleanup", function (event, pos, item) {
+        $("#tooltip").hide();
+    });
+    
+    readData();
+    
+    updateEvery1sec();
+    updateEvery10sec();
+
+
+    // Add the Flot version string to the footer
+
+    $("#footer").prepend("Flot " + $.plot.version + " &ndash; ");
+  });
+
+
+      class ev_status_button {
+        constructor(id_img, url, image_files_json,state,timeout) {
+          this.id_img = id_img;
+          this.url = url;
+          this.timeout = timeout;
+          this.state = state;
+          this.state_prev = !(state);
+          this.xmlhttp = new XMLHttpRequest();
+          this.image_files_json=image_files_json;
+          this.img_refresh();
+
+          this.img_refresh_cyclic();
+        }
+        set_state(state){
+          this.state = state;
+          this.img_refresh();
+        }
+        get_state(){
+          return this.state;
+        }
+        img_refresh_cyclic(){
+          //this.state_on=!(this.state_on);
+          if (this.url!="") {this.f_get_Status();}
+          this.img_refresh();
+          
+          window.setTimeout(this.img_refresh_cyclic.bind(this),this.timeout);
+        }
+        img_refresh(){
+          if (this.state_prev !=this.state ){
+            this.state_prev =this.state;
+            var img = document.getElementById(this.id_img);
+            switch(this.state) {
+              case 2:
+                img.src   = "images/ev_not_connected_evse_off.jp2";
+                img.title = "chargeur non disponible, a mettre sous tension, vehicule non connecté au chargeur";
+                break;
+              case 3:
+                img.src   = "images/ev_not_connected_evse_on.jp2";
+                img.title = "vehicule non connecté au chargeur";
+                break;
+              case 4:
+                img.src   = "images/ev_connected_evse_off.jp2";
+                img.title = "chargeur non disponible, a mettre sous tension, vehicule connecté au chargeur";
+                break;
+              case 5:
+              case 6:
+                img.src   = "images/ev_connected_evse_on.jp2";
+                img.title = "vehicule connecté au chargeur";
+                break;
+              case 7:
+                img.src   = "images/ev_charging.jp2";
+                img.title = "charge vehicule en cours";
+                break;
+              default:
+                img.src   = "images/ev_evse_no_status.jp2";
+                img.title = "chargeur dans un etat inconnu en cours de verification";
+            }
+          }
+        }
+        f_onreadystatechange(){
+              if (this.xmlhttp.readyState == 4) {
+                  if(this.xmlhttp.status == 200) {
+                      var data="";
+                      try {
+                        data=JSON.parse(this.xmlhttp.responseText);
+                          
+                      } catch (e) {
+                          console.log("Update failed: " + e);
+                          console.log(this.xmlhttp.responseText);
+                      }
+                      if (data!=""){
+                        var table_input_output_2_status=[
+                              /* OutputPilotStateNum  0  1  2  3  4  5  6  7 */
+                                      /* 0 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+                                      /* 1 */       [ 0, 0, 2, 4, 0, 0, 0, 0 ],
+                                      /* 2 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+                                      /* 3 */       [ 0, 0, 3, 5, 0, 0, 5, 0 ],
+                                      /* 4 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+                                      /* 5 */       [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+                                      /* 6 */       [ 0, 0, 3, 5, 0, 0, 6, 6 ],
+                                      /* 7 */       [ 0, 0, 0, 0, 0, 0, 6, 7 ]
+                                    ];
+
+                        console.log( data );
+                        if (("InputPilotState" in data)&&("OutputPilotState" in data)) {
+                          if ((data.InputPilotState.length>0)&&(data.OutputPilotState.length>0)){
+                            this.set_state(table_input_output_2_status[data.InputPilotState.charCodeAt(0)-64]
+                                                  [data.OutputPilotState.charCodeAt(0)-64]);
+                          }
+                        }
+                        data="";
+                      }
+
+                  }
+
+                  //window.setTimeout(function(){f_get_Status(this.xmlhttp,this.url,this.timeout);}, this.timeout);
+              }
+        }
+        f_get_Status() {
+            this.xmlhttp.onreadystatechange = this.f_onreadystatechange();
+            this.xmlhttp.open("GET", this.url, true);
+            this.xmlhttp.send();
+        }
+    }
+
+
+  </script>
+</head>
+<body>
+
+  <div id="header">
+    <h2>ev chargeur status<img id="ev_status" src="images/ev_not_connected_evse_off.jp2" width="100" title="Smiley face" ></h2>
+
+  </div>
+
+  <div id="content">
+
+    <div class="demo-container">
+      <div id="placeholder" class="demo-placeholder"></div>
+    </div>
+
+    <p><span id="time">12:31:12</span> <span id="ev_txt_status">----</span></p>
+
+
+    <div class="col display-4">
+
+      etat evse : <a href# onclick="evsb_t14.set_state(0);" >
+        <img id="evsb_t14" src="" width="100" title="Smiley face" >
+        </a>
+        <script>evsb_t14 = new ev_status_button("evsb_t14","data.json","", 1, 10000);
+        </script>
+
+    </div>
+  <div id="footer">
+    Copyright &copy; 2007 - 2014 IOLA and Ole Laursen
+  </div>
+
+</body>
+</html>

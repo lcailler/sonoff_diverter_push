@@ -1,0 +1,129 @@
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bootstrap Card</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</head>
+
+	<body style="background-color:DodgerBlue;">
+  <script language="javascript" type="text/javascript" src="./test_relais.js"></script>
+
+<div class="container">
+ <div class="row justify-content-center align-items-center">
+
+
+ 
+    <div class="col-auto text-center" >
+
+		<a href# onclick="rb_t13.toggle_state()" ><img id="rb_t13" src="./images/switched_unknown_status.png" width="100" title="Un click en mode manuel, [----], pour changer l'état du relais <ON> ou <OFF>. Si le mode auto, [AUTO], est actif, le mode manuel est desactivé." >
+		</a>
+		<script>
+				rb_t13 = new remote_relay_auto_button("rb_t13","relay.json.php",
+                                                  "./images/switched_on.png","./images/switched_off.png",
+                                                  "./images/switched_on_auto.png","./images/switched_off_auto.png",
+                                                  "./images/switched_unknown_status.png",
+                                                  false, 5000);
+                rb_t13.set_auto(true);
+		</script>
+
+    </div>
+
+    <div class="col display-4 text-center">
+<span id="localHostName">.......</span>
+    </div>
+
+  <!-- Force next columns to break to new line -->
+  <div class="w-100"></div>
+    <div class="col-auto text-center">
+		<a href# onclick="rb_t14.set_state(rb_t13.get_auto());rb_t13.toggle_auto();" ><img id="rb_t14" src="./images/switched_man.png" width="100" title="Un clic pour activer/désactiver le mode auto[AUTO] versus le mode manuel[----]." >
+		</a>
+		<script>rb_t14 = new relay_button("rb_t14","","./images/switched_auto.png","./images/switched_man.png", rb_t13.get_auto());
+		</script>
+    </div>
+
+    <div class="col text-center">
+<pre>
+	
+auto - commande automatisée du relais (4sec off/4sec on)
+---- - commande manuelle du relais                      </pre>
+    </div>
+
+  <!-- Force next columns to break to new line -->
+  <div class="w-100"></div>
+    <div class="col-auto text-center">
+<p><span id="time-hms">??:??:??</span></p>
+    </div>
+
+    <div class="col bg-secondary text-center">
+
+    </div>
+
+ </div>
+</div>
+
+
+
+    <script type="application/javascript">
+
+    var xmlhttp = new XMLHttpRequest();
+
+    function updateVersion() {
+        xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4) {
+                if(this.status == 200) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                        document.getElementById("localHostName").innerHTML = data.localHostName;
+                    } catch (e) {
+                        console.log("Update failed: " + e);
+                        console.log(this.responseText);
+                    }
+                }
+
+            }
+        };
+        xmlhttp.open("GET", "./config.json", true);
+        xmlhttp.send();
+    }
+    function updateTime() {
+        xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4) {
+                if(this.status == 200) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                        updateTimeView(data);
+                    } catch (e) {
+                        console.log("Update failed: " + e);
+                        console.log(this.responseText);
+                    }
+                }
+
+                window.setTimeout(updateTime, 1000);
+            }
+        };
+        xmlhttp.open("GET", "./time.json", true);
+        xmlhttp.send();
+    }
+
+    function updateTimeView(data) {
+        //console.log(data);
+        //document.getElementById("time-ms").innerHTML = data.uptime_ms;
+        //document.getElementById("time-hms").innerHTML = (new Date()).toLocaleTimeString();
+        //document.getElementById("time-hms").innerHTML = (new Date()).toLocaleTimeString();
+        document.getElementById("time-hms").innerHTML = (new Date(data.time_sec*1000.0)).toLocaleTimeString();
+    }
+
+    updateVersion();
+    window.setTimeout(updateTime, 1000);
+    //updateTime();
+    </script>
+
+
+
+
+	</body>
+</html>

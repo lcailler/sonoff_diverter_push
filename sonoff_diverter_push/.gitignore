@@ -1,0 +1,4 @@
+tags
+.idea/
+*.hex
+.DS_Store

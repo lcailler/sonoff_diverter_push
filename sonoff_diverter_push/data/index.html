@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html charset="UTF-8">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sonoff relais control</title>
+  </head>
+  <body>
+    <h1>sonoff relais control</h1>
+
+    <pre>
+    <p><span id="time-hms">??:??:??</span></p>
+    <p>ESP8266 actif depuis <span id="time-ms">??</span> Millisec / <span id="time-s">??</span> sec / <span id="time-min">??</span> min / <span id="time-h">??</span> heures</p>
+    <p>VERSION: <span id="sw_version">.......</span><br> 
+    <p>local host name: <span id="localHostName">.......</span><br> 
+    <a href="./time">time</a><br>
+    <a href="./time.html">time.html</a><br>
+    <a href="./time.json">time.json</a><br>
+    <a href="./device.json">device.json</a><br>
+    <a href="./config.json">config.json</a><br>
+    <a href="./serial">serial</a><br>
+    <a href="./serial.json">serial.json</a><br>
+    <a href="./serialbuff.json">serialbuff.json</a><br>
+    <a href="./data.json">data.json</a><br>
+    <a href="./datalog.json">datalog.json</a><br>
+    <a href="./datalog.html">datalog.html</a><br>
+    <a href="./test_relais.html">test_relais.html</a><br>
+
+
+    <a href="./device.json?switchON">relais switchON</a><br>
+    <a href="./device.json?switchOFF">relais switchOFF</a><br>
+    <a href="./device.json?switchTOGGLE">relais switchTOGGLE</a></pre>
+<form action="/postswitchstate" method="post" target="_blank">
+    <pre>    <label for="switch">set relais switch position:</label><select name="switch"><option value="0">0</option><option value="1">1</option><option value="2">toggle</option></select><input type="submit" value="Submit"></pre>
+</form>
+<form action="/postswitchstate" method="post" target="_blank">
+    <pre>    <label for="localHostName">set localHostName:</label><input type="text" id="localHostName" name="localHostName" value="sonoff-relais-test-b"><input type="submit" value="Submit"></pre>
+</form>
+<form action="/postswitchstate" method="post" target="_blank">
+    <pre>    <label for="localHostName">set httpServerPushUrl:</label><input type="text" id="httpServerPushUrl" name="httpServerPushUrl" value="http://info.123.free.fr/modules/XXX/diverter/log_json.php"><input type="submit" value="Submit"></pre>
+</form>
+
+<pre>
+    <a href="./relay.json.php">relais json</a><br>
+    <a href="./relay.json.php?set_relay_switch_state=1">relais switchON</a><br>
+    <a href="./relay.json.php?set_relay_switch_state=0">relais switchOFF</a><br>
+    <a href="./relay.json.php?set_relay_switch_state=2">relais switchTOGGLE</a><br>
+    <a href="./relay.json.php?set_relay_switch_state_channel_00=1">relais channel 00 switchON</a><br>
+    <a href="./relay.json.php?set_relay_switch_state_channel_00=0">relais channel 00 switchOFF</a><br>
+    <a href="./relay.json.php?set_relay_switch_state_channel_00=2">relais channel 00 switchTOGGLE</a><br>
+    <a href="./relay.json.php?set_relay_switch_state_channel_01=1">relais channel 01 switchON</a><br>
+    <a href="./relay.json.php?set_relay_switch_state_channel_01=0">relais channel 01 switchOFF</a><br>
+    <a href="./relay.json.php?set_relay_switch_state_channel_01=2">relais channel 01 switchTOGGLE</a><br>
+    <a href="./relay.json.php?set_relay_channel_active_number=0">relais channel 00 activation</a><br>
+    <a href="./relay.json.php?set_relay_channel_active_number=1">relais channel 01 activation</a><br>
+
+
+</pre>
+
+
+<form action="/post_prg.json.php" method="post" target="_blank">
+    <pre>    <label for="prg">set prgStr:</label><input type="text" id="prg" name="prg" value="[.]_00h00_23h59_DIVERTER_GETJSON"><input type="submit" value="Submit"></pre>
+</form>
+<pre>
+    <a href="./get_prg.json.php">get prgStr</a><br>
+</pre>
+
+  <!--label for="switch">set switch position:</--label><input type="text" id="switch" name="switch"><input type="submit" value="Submit" -->
+
+
+    <script type="application/javascript">
+    
+    var xmlhttp = new XMLHttpRequest();
+
+    function updateVersion() {
+        xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4) {
+                if(this.status == 200) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                        document.getElementById("sw_version").innerHTML    = data.sw_version;
+                        document.getElementById("localHostName").innerHTML = data.localHostName;
+                    } catch (e) {
+                        console.log("Update failed: " + e);
+                        console.log(this.responseText);
+                    }
+                }
+
+            }
+        };
+        xmlhttp.open("GET", "/config.json", true);
+        xmlhttp.send();
+    }
+    function updateTime() {
+        xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4) {
+                if(this.status == 200) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                        updateTimeView(data);
+                    } catch (e) {
+                        console.log("Update failed: " + e);
+                        console.log(this.responseText);
+                    }
+                }
+
+                window.setTimeout(updateTime, 1000);
+            }
+        };
+        xmlhttp.open("GET", "/time.json", true);
+        xmlhttp.send();
+    }
+
+    function updateTimeView(data) {
+        document.getElementById("time-ms").innerHTML = data.uptime_ms;
+        document.getElementById("time-s").innerHTML = (data.uptime_ms/1000).toFixed(1);
+        document.getElementById("time-min").innerHTML = (data.uptime_ms/1000/60).toFixed(1);
+        document.getElementById("time-h").innerHTML = (data.uptime_ms/1000/3600).toFixed(1);
+        document.getElementById("time-hms").innerHTML = (new Date()).toLocaleTimeString();
+    }
+
+    updateVersion();
+    window.setTimeout(updateTime, 1000);
+    //updateTime();
+    </script>
+  </body>
+</html>
